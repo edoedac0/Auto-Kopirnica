@@ -14,6 +14,7 @@ from werkzeug.utils import secure_filename
 # Third-party deps
 import qrcode
 from PyPDF2 import PdfReader
+from PyPDF2 import PdfWriter
 from PIL import Image
 
 try:
@@ -123,7 +124,9 @@ def add_files_to_job(job: dict, saved_files: list):
             'filename': original_name,
             'path': saved_path,
             'pages': pages,
-            'ext': ext
+            'ext': ext,
+            'selected_pages': None,
+            'selected_text': ''
         })
 
     # Update totals
@@ -149,7 +152,14 @@ def calc_price(job: dict, options: dict) -> float:
       - A3 doubles per-page price
       - Multiply by copies
     """
-    pages = job.get('total_pages', 0)
+    # Account for custom per-file page selection when present
+    pages = 0
+    for f in job.get('files', []):
+        sel = f.get('selected_pages')
+        if sel:
+            pages += len(sel)
+        else:
+            pages += int(f.get('pages', 0))
     paper_size = options.get('paper_size', 'A4')
     color = options.get('color', 'BW')
     copies = int(options.get('copies', 1)) or 1
@@ -159,6 +169,71 @@ def calc_price(job: dict, options: dict) -> float:
         base *= 2.0
 
     return round(pages * base * copies, 2)
+
+
+def parse_page_ranges(spec: str, total_pages: int) -> list[int]:
+    """Parse a string like "2-6, 9, 12-16" into sorted unique 1-based pages.
+
+    - Invalid tokens are ignored.
+    - Pages are clamped to [1, total_pages].
+    - Duplicates removed; result sorted ascending.
+    """
+    pages: set[int] = set()
+    if not spec:
+        return []
+    raw = spec.replace(';', ',').replace(' ', '')
+    for token in raw.split(','):
+        if not token:
+            continue
+        if '-' in token:
+            try:
+                a_str, b_str = token.split('-', 1)
+                a = int(a_str)
+                b = int(b_str)
+                if a > b:
+                    a, b = b, a
+                a = max(1, a)
+                b = min(total_pages, b)
+                for p in range(a, b + 1):
+                    if 1 <= p <= total_pages:
+                        pages.add(p)
+            except Exception:
+                continue
+        else:
+            try:
+                p = int(token)
+                if 1 <= p <= total_pages:
+                    pages.add(p)
+            except Exception:
+                continue
+    return sorted(pages)
+
+
+def subset_pdf(src_pdf: str, pages: list[int], out_pdf: str | None = None) -> str | None:
+    """Create a new PDF containing only 1-based pages.
+
+    Returns the output PDF path, or None on failure.
+    """
+    if not pages:
+        return None
+    try:
+        with open(src_pdf, 'rb') as f:
+            reader = PdfReader(f)
+            writer = PdfWriter()
+            for p in pages:
+                idx = p - 1
+                if 0 <= idx < len(reader.pages):
+                    writer.add_page(reader.pages[idx])
+            if writer.get_num_pages() == 0:
+                return None
+            if out_pdf is None:
+                root, _ = os.path.splitext(src_pdf)
+                out_pdf = f"{root}_subset.pdf"
+            with open(out_pdf, 'wb') as out:
+                writer.write(out)
+            return out_pdf
+    except Exception:
+        return None
 
 
 def try_find_sumatra() -> str | None:
@@ -338,11 +413,18 @@ def print_job(job_id: str):
         path = f['path']
         try:
             pdf_path = ensure_pdf(path, f['ext'])
+            # Apply custom page selection if available (only for PDFs)
+            pages_sel = f.get('selected_pages') or []
             if pdf_path:
-                printed = print_pdf_silent(pdf_path, copies=copies)
+                use_path = pdf_path
+                if pages_sel:
+                    subset_path = subset_pdf(pdf_path, pages_sel)
+                    if subset_path:
+                        use_path = subset_path
+                printed = print_pdf_silent(use_path, copies=copies)
                 if not printed and pdf_path != path:
                     # Fallback to generic print if Sumatra not found
-                    printed = print_non_pdf(pdf_path, copies=copies)
+                    printed = print_non_pdf(use_path, copies=copies)
             else:
                 # Unknown type; last resort may show UI
                 printed = print_non_pdf(path, copies=copies)
@@ -564,6 +646,18 @@ def print_options(job_id):
                 'duplex': duplex,
                 'copies': copies,
             }
+            # Parse custom page ranges for each file (optional)
+            for idx, f in enumerate(job.get('files', [])):
+                field = f'ranges_{idx}'
+                text = (request.form.get(field, '') or '').strip()
+                f['selected_text'] = text
+                f['selected_pages'] = None
+                if text:
+                    total = int(f.get('pages', 0)) or 0
+                    if total > 0:
+                        sel = parse_page_ranges(text, total)
+                        if sel:
+                            f['selected_pages'] = sel
             job['price'] = calc_price(job, job['options'])
 
         # Start printing thread

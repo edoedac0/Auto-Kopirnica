@@ -37,6 +37,19 @@
 
     <form class="card form" method="post" action="{{ url_for('print_options', job_id=job.id) }}" id="printForm">
       <div class="group">
+        <label>Custom stranice po datoteci (opcionalno)</label>
+        <div class="muted small" style="margin-bottom:8px;">Ostavite prazno za sve stranice. Format: n ili a-b, npr. 2-6, 9, 12-16.</div>
+        <div>
+          {% for f in job.files %}
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+              <div style="flex:0 0 auto; max-width:48%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ f.filename }}">{{ f.filename }}</div>
+              <input name="ranges_{{ loop.index0 }}" type="text" placeholder="e.g. 2-6, 9, 12-16" value="{{ f.selected_text }}" style="flex:1 1 auto;" />
+              <span class="muted small" style="flex:0 0 auto;">{{ f.pages }} str.</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="group">
         <label for="paper_size">Format papira</label>
         <input type="hidden" id="paper_size" name="paper_size" value="{{ job.options.paper_size }}" />
         <div class="cselect" data-input="paper_size">
@@ -87,11 +100,9 @@
       </div>
 
       <div class="price-box">
-        <div class="price-label">Procijenjena cijena</div>
+        <div class="price-label">Cijena</div>
         <div class="price-value"><span id="price">{{ '%.2f' % job.price }}</span> KM</div>
-        <div class="muted small">
-          A4 BW = 0.10 KM/str., A4 Color = 0.30 KM/str., A3 x2; puta broj kopija.
-        </div>
+        <div class="muted small">Plaćanje na sljedećem koraku.</div>
       </div>
 
       <button class="btn primary wide center" type="submit" id="printBtn" formnovalidate>
@@ -111,7 +122,7 @@
     <div class="page-id">ID: <code>{{ job.id }}</code></div>
   </div>
 
-  <script>
+    <script>
     const paper = document.getElementById('paper_size');
     const color = document.getElementById('color');
     const duplex = document.getElementById('duplex');
@@ -130,6 +141,16 @@
         priceEl.textContent = (data.price || 0).toFixed(2);
       } catch (e) {}
     }
+
+    // Recalculate price when user edits custom ranges (best-effort without server validation)
+    document.querySelectorAll('input[name^="ranges_"]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        // We can't validate without knowing page count per-file here;
+        // just trigger server-side preview using unchanged options.
+        // Final price will be calculated on submit based on selections.
+        refreshPrice();
+      });
+    });
 
     function initCustomSelect(el) {
       const inputId = el.getAttribute('data-input');
