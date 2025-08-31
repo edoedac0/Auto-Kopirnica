@@ -26,29 +26,6 @@ body.kiosk {
   height: 100vh;
 }
 
-body.mobile {
-  font-size: 16px;
-}
-body.mobile .header-inner {
-  padding: 12px 16px;
-  justify-content: center;
-}
-body.mobile .brand .logo {
-  width: 32px;
-  height: 32px;
-}
-body.mobile .brand .name {
-  font-size: 24px;
-}
-body.mobile .container {
-  padding: 16px;
-  gap: 16px;
-}
-body.mobile .btn.big {
-  font-size: 24px;
-  padding: 24px;
-}
-
 /* Header */
 .header {
   background: #ffffff;
