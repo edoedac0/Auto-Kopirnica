@@ -136,6 +136,8 @@ def ensure_job(job_id: str) -> dict:
         job = jobs.get(job_id)
         if not job:
             abort(404, description='Job not found')
+        # Bump last activity timestamp on any access
+        job['last_activity'] = time.time()
         return job
 
 
@@ -380,6 +382,29 @@ def delete_job_files(job_id: str):
     except Exception:
         pass
 
+def cleanup_expired_jobs(timeout: int = 60, interval: int = 5) -> None:
+    """Background worker that deletes jobs inactive for over `timeout` seconds."""
+    while True:
+        time.sleep(interval)
+        now = time.time()
+        expired: list[str] = []
+        with jobs_lock:
+            for jid, job in list(jobs.items()):
+                if job.get('stage') in ('printing', 'done', 'deleted', 'assigned'):
+                    continue
+                last = job.get('last_activity', now)
+                if now - last >= timeout:
+                    job['stage'] = 'deleted'
+                    expired.append(jid)
+        for jid in expired:
+            delete_job_files(jid)
+            with jobs_lock:
+                jobs.pop(jid, None)
+
+
+cleanup_thread = threading.Thread(target=cleanup_expired_jobs, daemon=True)
+cleanup_thread.start()
+
 
 # ----------------------------
 # Flask app
@@ -475,6 +500,7 @@ def upload_new():
                 'price': 0.0,
                 'stage': 'upload',
                 'created_at': now_utc().isoformat(),
+                'last_activity': time.time(),
                 'assigned': False,
                 'total_pages': 0,
             }
