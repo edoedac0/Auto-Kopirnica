@@ -174,10 +174,10 @@
       });
     }
 
-    // Inactivity auto-expire (90s) for existing job
+    // Inactivity auto-expire (60s) for existing job
     {% if job %}
     (function(){
-      const LIMIT_MS = 90 * 1000;
+      const LIMIT_MS = 60 * 1000;
       let last = Date.now();
       const bump = () => { last = Date.now(); };
       ['click','keydown','mousemove','touchstart','change','scroll'].forEach(evt => {
