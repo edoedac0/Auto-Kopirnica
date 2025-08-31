@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Opcije ispisa - 24/7 Kopirnica</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffffff" />
 </head>
-<body>
+<body class="kiosk">
   <header class="header">
     <div class="header-inner">
       <div class="brand">
@@ -18,6 +20,7 @@
         </svg>
         <span class="name">24/7 Kopirnica</span>
       </div>
+      <a href="/" class="nav-btn">Početna</a>
     </div>
   </header>
   <div class="container">
@@ -86,6 +89,26 @@
         <input id="copies" name="copies" type="number" min="1" value="{{ job.options.copies }}" />
       </div>
 
+      <div class="group">
+        <label for="pages_mode">Stranice po datoteci</label>
+        <input type="hidden" id="pages_mode" name="pages_mode" value="{{ job.options.get('pages_mode', 'All') }}" />
+        <div class="cselect" data-input="pages_mode">
+          <button type="button" class="display" aria-haspopup="listbox" aria-expanded="false">
+            <span class="text">{{ job.options.get('pages_mode', 'All') }}</span>
+            <span class="caret"></span>
+          </button>
+          <div class="menu" role="listbox">
+            <div class="option" role="option" data-value="All">All</div>
+            <div class="option" role="option" data-value="Custom">Custom</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group{% if job.options.get('pages_mode', 'All') != 'Custom' %} hidden{% endif %}" id="customPagesGroup">
+        <label for="custom_pages">Custom pages</label>
+        <input id="custom_pages" name="custom_pages" type="text" value="{{ job.options.get('custom_pages', '') }}" />
+      </div>
+
       <div class="price-box">
         <div class="price-label">Procijenjena cijena</div>
         <div class="price-value"><span id="price">{{ '%.2f' % job.price }}</span> KM</div>
@@ -94,7 +117,7 @@
         </div>
       </div>
 
-      <button class="btn primary wide center" type="submit" id="printBtn" formnovalidate>
+      <button class="btn primary wide big center" type="submit" id="printBtn" formnovalidate>
         <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="6" width="18" height="12" rx="2" />
           <rect x="3" y="10" width="18" height="2" rx="1" />
@@ -116,6 +139,8 @@
     const color = document.getElementById('color');
     const duplex = document.getElementById('duplex');
     const copies = document.getElementById('copies');
+    const pagesMode = document.getElementById('pages_mode');
+    const customPagesGroup = document.getElementById('customPagesGroup');
     const priceEl = document.getElementById('price');
     async function refreshPrice() {
       const params = new URLSearchParams({
@@ -155,12 +180,17 @@
           text.textContent = label;
           el.classList.remove('open');
           display.setAttribute('aria-expanded', 'false');
-          refreshPrice();
+          if (hidden === pagesMode) {
+            toggleCustomPages();
+          } else {
+            refreshPrice();
+          }
         });
       });
     }
 
     document.querySelectorAll('.cselect').forEach(initCustomSelect);
+    toggleCustomPages();
     document.addEventListener('click', (e) => {
       const t = e.target;
       if (!t.closest) return;
@@ -178,6 +208,12 @@
       if (!Number.isFinite(v) || v < 1) copies.value = '1';
     }
     copies.addEventListener('input', () => { normalizeCopies(); refreshPrice(); });
+
+    function toggleCustomPages(){
+      if (pagesMode && customPagesGroup) {
+        customPagesGroup.classList.toggle('hidden', pagesMode.value !== 'Custom');
+      }
+    }
 
     // UX: disable submit button on submit to avoid double clicks and bypass validation issues
     const printForm = document.getElementById('printForm');

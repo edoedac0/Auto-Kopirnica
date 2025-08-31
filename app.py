@@ -96,7 +96,7 @@ def ext_of(path: str) -> str:
 # jobs[job_id] = {
 #   'id': job_id,
 #   'files': [ {'filename': original, 'path': abs_path, 'pages': int, 'ext': str} ],
-#   'options': { 'paper_size': 'A4', 'color': 'BW', 'duplex': 'No', 'copies': 1 },
+#   'options': { 'paper_size': 'A4', 'color': 'BW', 'duplex': 'No', 'copies': 1, 'pages_mode': 'All', 'custom_pages': '' },
 #   'price': 0.0,
 #   'stage': 'upload' | 'ready' | 'assigned' | 'printing' | 'done' | 'deleted',
 #   'created_at': iso-str,
@@ -496,6 +496,8 @@ def upload_new():
                     'color': 'BW',
                     'duplex': 'No',
                     'copies': 1,
+                    'pages_mode': 'All',
+                    'custom_pages': '',
                 },
                 'price': 0.0,
                 'stage': 'upload',
@@ -556,6 +558,8 @@ def print_options(job_id):
         color = request.form.get('color', 'BW')
         duplex = request.form.get('duplex', 'No')
         copies = int(request.form.get('copies', '1') or '1')
+        pages_mode = request.form.get('pages_mode', 'All')
+        custom_pages = request.form.get('custom_pages', '')
 
         with jobs_lock:
             job['options'] = {
@@ -563,6 +567,8 @@ def print_options(job_id):
                 'color': color,
                 'duplex': duplex,
                 'copies': copies,
+                'pages_mode': pages_mode,
+                'custom_pages': custom_pages,
             }
             job['price'] = calc_price(job, job['options'])
 
