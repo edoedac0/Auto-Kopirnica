@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Opcije ispisa - 24/7 Kopirnica</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="2" fill="#3b82f6" opacity="0.85"/>
+          <rect x="6" y="7" width="6" height="2" rx="1" fill="white"/>
+          <rect x="6" y="11" width="12" height="2" rx="1" fill="white"/>
+          <rect x="6" y="15" width="10" height="2" rx="1" fill="white"/>
+        </svg>
+        <span class="name">24/7 Kopirnica</span>
+      </div>
+    </div>
+  </header>
+  <div class="container">
+    <h1 class="title">Opcije ispisa</h1>
+
+    <div class="card">
+      <ul class="file-list">
+        {% for f in job.files %}
+        <li>
+          <span>{{ f.filename }}</span>
+          <span class="muted">{{ f.pages }} str.</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="muted">Ukupno stranica: {{ job.total_pages }}</div>
+    </div>
+
+    <form class="card form" method="post" action="{{ url_for('print_options', job_id=job.id) }}" id="printForm">
+      <div class="group">
+        <label for="paper_size">Format papira</label>
+        <input type="hidden" id="paper_size" name="paper_size" value="{{ job.options.paper_size }}" />
+        <div class="cselect" data-input="paper_size">
+          <button type="button" class="display" aria-haspopup="listbox" aria-expanded="false">
+            <span class="text">{{ job.options.paper_size }}</span>
+            <span class="caret"></span>
+          </button>
+          <div class="menu" role="listbox">
+            <div class="option" role="option" data-value="A4">A4</div>
+            <div class="option" role="option" data-value="A3">A3</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <label for="color">Način ispisa</label>
+        <input type="hidden" id="color" name="color" value="{{ job.options.color }}" />
+        <div class="cselect" data-input="color">
+          <button type="button" class="display" aria-haspopup="listbox" aria-expanded="false">
+            <span class="text">{% if job.options.color == 'Color' %}U boji{% else %}Crno-bijelo{% endif %}</span>
+            <span class="caret"></span>
+          </button>
+          <div class="menu" role="listbox">
+            <div class="option" role="option" data-value="BW">Crno-bijelo</div>
+            <div class="option" role="option" data-value="Color">U boji</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <label for="duplex">Obostrano</label>
+        <input type="hidden" id="duplex" name="duplex" value="{{ job.options.duplex }}" />
+        <div class="cselect" data-input="duplex">
+          <button type="button" class="display" aria-haspopup="listbox" aria-expanded="false">
+            <span class="text">{% if job.options.duplex == 'Yes' %}Da{% else %}Ne{% endif %}</span>
+            <span class="caret"></span>
+          </button>
+          <div class="menu" role="listbox">
+            <div class="option" role="option" data-value="No">Ne</div>
+            <div class="option" role="option" data-value="Yes">Da</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <label for="copies">Broj kopija</label>
+        <input id="copies" name="copies" type="number" min="1" value="{{ job.options.copies }}" />
+      </div>
+
+      <div class="price-box">
+        <div class="price-label">Procijenjena cijena</div>
+        <div class="price-value"><span id="price">{{ '%.2f' % job.price }}</span> KM</div>
+        <div class="muted small">
+          A4 BW = 0.10 KM/str., A4 Color = 0.30 KM/str., A3 x2; puta broj kopija.
+        </div>
+      </div>
+
+      <button class="btn primary wide center" type="submit" id="printBtn" formnovalidate>
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="6" width="18" height="12" rx="2" />
+          <rect x="3" y="10" width="18" height="2" rx="1" />
+          <circle cx="8" cy="16" r="1.5" />
+          <circle cx="12" cy="16" r="1.5" />
+        </svg>
+        Plati i isprintaj
+      </button>
+    </form>
+
+  </div>
+
+  <div class="container">
+    <div class="page-id">ID: <code>{{ job.id }}</code></div>
+  </div>
+
+  <script>
+    const paper = document.getElementById('paper_size');
+    const color = document.getElementById('color');
+    const duplex = document.getElementById('duplex');
+    const copies = document.getElementById('copies');
+    const priceEl = document.getElementById('price');
+    async function refreshPrice() {
+      const params = new URLSearchParams({
+        paper_size: paper.value,
+        color: color.value,
+        duplex: duplex.value,
+        copies: copies.value || '1'
+      });
+      try {
+        const res = await fetch('/price_preview/{{ job.id }}?' + params.toString(), { cache: 'no-cache' });
+        const data = await res.json();
+        priceEl.textContent = (data.price || 0).toFixed(2);
+      } catch (e) {}
+    }
+
+    function initCustomSelect(el) {
+      const inputId = el.getAttribute('data-input');
+      const hidden = document.getElementById(inputId);
+      const display = el.querySelector('.display');
+      const text = el.querySelector('.display .text');
+      const menu = el.querySelector('.menu');
+      function closeAll() {
+        document.querySelectorAll('.cselect.open').forEach(n => {
+          if (n !== el) { n.classList.remove('open'); n.querySelector('.display')?.setAttribute('aria-expanded', 'false'); }
+        });
+      }
+      display.addEventListener('click', () => {
+        const isOpen = el.classList.toggle('open');
+        display.setAttribute('aria-expanded', String(isOpen));
+        if (isOpen) closeAll();
+      });
+      menu.querySelectorAll('.option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          const val = opt.getAttribute('data-value');
+          const label = opt.textContent;
+          hidden.value = val;
+          text.textContent = label;
+          el.classList.remove('open');
+          display.setAttribute('aria-expanded', 'false');
+          refreshPrice();
+        });
+      });
+    }
+
+    document.querySelectorAll('.cselect').forEach(initCustomSelect);
+    document.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!t.closest) return;
+      if (!t.closest('.cselect')) {
+        document.querySelectorAll('.cselect.open').forEach(el => {
+          el.classList.remove('open');
+          el.querySelector('.display')?.setAttribute('aria-expanded', 'false');
+        });
+      }
+    });
+
+    // Clamp invalid copies values and refresh pricing
+    function normalizeCopies(){
+      const v = parseInt(copies.value || '1', 10);
+      if (!Number.isFinite(v) || v < 1) copies.value = '1';
+    }
+    copies.addEventListener('input', () => { normalizeCopies(); refreshPrice(); });
+
+    // UX: disable submit button on submit to avoid double clicks and bypass validation issues
+    const printForm = document.getElementById('printForm');
+    const printBtn = document.getElementById('printBtn');
+    if (printForm && printBtn) {
+      printForm.addEventListener('submit', () => {
+        normalizeCopies();
+        printBtn.disabled = true;
+        printBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Pokrećem ispis…';
+      });
+    }
+  </script>
+</body>
+<!-- Print options page: lists files, options, dynamic pricing, and print action. -->
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gotovo - 24/7 Kopirnica</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="2" fill="#3b82f6" opacity="0.85"/>
+          <rect x="6" y="7" width="6" height="2" rx="1" fill="white"/>
+          <rect x="6" y="11" width="12" height="2" rx="1" fill="white"/>
+          <rect x="6" y="15" width="10" height="2" rx="1" fill="white"/>
+        </svg>
+        <span class="name">24/7 Kopirnica</span>
+      </div>
+    </div>
+  </header>
+  <div class="container center">
+    <h1 class="title">Hvala!</h1>
+    <div class="card center">
+      <div class="subtitle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:22px;height:22px;vertical-align:-4px;margin-right:8px;">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+        Vaš ispis je pokrenut.
+      </div>
+      <div id="stage" class="muted">Status: …</div>
+    </div>
+    <div class="actions">
+      <a class="btn center" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Natrag na početnu
+      </a>
+    </div>
+  </div>
+
+  <script>
+    function bsStage(s) {
+      switch (String(s)) {
+        case 'upload': return 'prijenos';
+        case 'ready': return 'spremno';
+        case 'assigned': return 'dodijeljeno';
+        case 'printing': return 'ispis u toku';
+        case 'done': return 'završeno';
+        case 'deleted': return 'obrisano';
+        default: return s;
+      }
+    }
+
+    function updateStage(s) {
+      if (String(s) === 'deleted') {
+        // Redirect immediately when cleanup is done; don't show "obrisano"
+        window.location.replace('/');
+        return;
+      }
+      const el = document.getElementById('stage');
+      if (el) el.textContent = 'Status: ' + bsStage(s);
+    }
+
+    // Initialize with current stage in Bosnian
+    updateStage('{{ job.stage }}');
+
+    async function poll() {
+      try {
+        const res = await fetch('/job/{{ job.id }}/status', { cache: 'no-cache' });
+        const data = await res.json();
+        updateStage(data.stage);
+      } catch (e) {}
+      setTimeout(poll, 1500);
+    }
+    poll();
+  </script>
+</body>
+<!-- Done page: confirms printing and shows live job status until deletion. -->
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upload - 24/7 Kopirnica</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0f172a" />
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">Prijenos datoteka</h1>
+
+    {% if error %}
+    <div class="alert">{{ error }}</div>
+    {% endif %}
+
+    {% if not job %}
+      <div class="card">
+        <form method="post" enctype="multipart/form-data" class="upload-form" id="createForm">
+          <label class="label">Odaberite datoteke (PDF, slike, Word, Excel, PowerPoint, TXT)</label>
+          <div class="uploader" id="dropZone">
+            <input id="fileInput" class="file-hidden" type="file" name="files" multiple required />
+            <label for="fileInput" class="btn primary big center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+                <path d="M7 10l5-5 5 5" />
+                <path d="M12 5v12" />
+              </svg>
+              Odaberi datoteke
+            </label>
+            <div id="fileInfo" class="muted small">Nije odabrana nijedna datoteka</div>
+          </div>
+          <button class="btn primary wide big center" type="submit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+              <path d="M7 10l5-5 5 5" />
+              <path d="M12 5v12" />
+            </svg>
+            Pošalji
+          </button>
+        </form>
+        <div class="hint">Napomena: posao se kreira tek nakon prijenosa prve datoteke.</div>
+      </div>
+    {% else %}
+      <div class="card">
+        {% set image_ext = ['png','jpg','jpeg','bmp','gif','tif','tiff','webp'] %}
+        {% set pdf_ext = ['pdf'] %}
+        {% set doc_ext = ['doc','docx','txt'] %}
+        {% set xls_ext = ['xls','xlsx'] %}
+        {% set ppt_ext = ['ppt','pptx'] %}
+        <ul class="file-list">
+          {% for f in job.files %}
+          <li>
+            <span class="item">
+              {% if f.ext in image_ext %}
+                <span class="icon fi fi-image" aria-hidden="true"></span>
+              {% elif f.ext in pdf_ext %}
+                <span class="icon fi fi-pdf" aria-hidden="true"></span>
+              {% elif f.ext in xls_ext %}
+                <span class="icon fi fi-xls" aria-hidden="true"></span>
+              {% elif f.ext in ppt_ext %}
+                <span class="icon fi fi-ppt" aria-hidden="true"></span>
+              {% elif f.ext in doc_ext %}
+                <span class="icon fi fi-doc" aria-hidden="true"></span>
+              {% else %}
+                <span class="icon fi fi-file" aria-hidden="true"></span>
+              {% endif %}
+              <span>{{ f.filename }}</span>
+            </span>
+            <span class="muted">{{ f.pages }} str.</span>
+          </li>
+          {% endfor %}
+        </ul>
+        <div class="muted small" style="margin-top:8px;">Ukupno stranica: {{ job.total_pages }}</div>
+      </div>
+
+      <div class="card">
+        <form method="post" enctype="multipart/form-data" class="upload-form">
+          <label class="label">Dodaj još datoteka</label>
+          <div class="uploader">
+            <input id="moreFiles" class="file-hidden" type="file" name="files" multiple />
+            <label for="moreFiles" class="btn big center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+                <path d="M7 10l5-5 5 5" />
+                <path d="M12 5v12" />
+              </svg>
+              Odaberi
+            </label>
+            <div id="moreInfo" class="muted small">Nije odabrano</div>
+          </div>
+          <button id="btnAdd" class="btn primary center hidden" type="submit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            Dodaj
+          </button>
+        </form>
+      </div>
+
+      <div class="card center" id="doneBox" style="display:none;">
+        <div class="subtitle">Posao je spreman. Opcije će se prikazati na pultu.</div>
+        <div class="muted small">Možete zatvoriti ovu stranicu.</div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary big center" id="btnDone" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          Gotovo
+        </button>
+      </div>
+      <div class="muted small" style="margin-top:10px;">ID: <code>{{ job.id }}</code></div>
+    {% endif %}
+
+  </div>
+
+  {% if job %}
+  <script>
+    const btn = document.getElementById('btnDone');
+    const box = document.getElementById('doneBox');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        box.style.display = 'block';
+        btn.disabled = true;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg> Spremno';
+        // Hide everything else on the page so only the message remains
+        const container = document.querySelector('.container');
+        if (container) {
+          container.querySelectorAll(':scope > *').forEach(function(el){
+            if (el !== box) { el.style.display = 'none'; }
+          });
+          box.style.display = 'block';
+        }
+      });
+    }
+  </script>
+  {% endif %}
+  <script>
+    function summarize(files) {
+      if (!files || files.length === 0) return 'Nije odabrana nijedna datoteka';
+      if (files.length === 1) return files[0].name;
+      return files.length + ' datoteka odabrano';
+    }
+    const fi = document.getElementById('fileInput');
+    const fo = document.getElementById('fileInfo');
+    if (fi && fo) fi.addEventListener('change', () => { fo.textContent = summarize(fi.files); });
+    const mf = document.getElementById('moreFiles');
+    const mi = document.getElementById('moreInfo');
+    const addBtn = document.getElementById('btnAdd');
+    if (mf && mi) mf.addEventListener('change', () => {
+      mi.textContent = summarize(mf.files);
+      const has = mf.files && mf.files.length > 0;
+      if (addBtn) addBtn.classList.toggle('hidden', !has);
+    });
+
+    // Drag & drop (desktop convenience)
+    const dz = document.getElementById('dropZone');
+    if (dz && fi) {
+      ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover');
+      }));
+      ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover');
+      }));
+      dz.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files) {
+          fi.files = e.dataTransfer.files; fo.textContent = summarize(fi.files);
+        }
+      });
+    }
+
+    // Inactivity auto-expire (90s) for existing job
+    {% if job %}
+    (function(){
+      const LIMIT_MS = 90 * 1000;
+      let last = Date.now();
+      const bump = () => { last = Date.now(); };
+      ['click','keydown','mousemove','touchstart','change','scroll'].forEach(evt => {
+        document.addEventListener(evt, bump, { passive: true });
+      });
+      setInterval(async () => {
+        if (Date.now() - last >= LIMIT_MS) {
+          try { await fetch('/job/{{ job.id }}/expire', { method: 'POST' }); } catch (e) {}
+          location.href = '/upload';
+        }
+      }, 1000);
+    })();
+    {% endif %}
+  </script>
+</body>
+<!-- Upload page: new job on first upload; existing job can add files. -->
+</html>
